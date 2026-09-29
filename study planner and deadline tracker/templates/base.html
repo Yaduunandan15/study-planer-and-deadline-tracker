@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ current_user.theme if current_user and current_user.theme else 'dark' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}StudyFlow - Study Planner & Deadline Tracker{% endblock %}</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <div class="app-container">
+    {% if current_user %}
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="mainSidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div>
+          <div class="brand-text">StudyFlow</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted);">Planner & Deadlines</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <i class="fas fa-chart-pie" style="width: 20px;"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="{{ url_for('planner') }}" class="nav-link {% if request.endpoint == 'planner' %}active{% endif %}">
+          <i class="fas fa-calendar-alt" style="width: 20px;"></i>
+          <span>Study Planner</span>
+        </a>
+
+        <a href="{{ url_for('tasks') }}" class="nav-link {% if request.endpoint == 'tasks' %}active{% endif %}">
+          <i class="fas fa-check-double" style="width: 20px;"></i>
+          <span>Task Management</span>
+        </a>
+
+        <a href="{{ url_for('deadlines') }}" class="nav-link {% if request.endpoint == 'deadlines' %}active{% endif %}">
+          <i class="fas fa-stopwatch" style="width: 20px;"></i>
+          <span>Deadline Tracker</span>
+        </a>
+
+        <a href="{{ url_for('notifications') }}" class="nav-link {% if request.endpoint == 'notifications' %}active{% endif %}">
+          <i class="fas fa-bell" style="width: 20px;"></i>
+          <span>Reminders</span>
+          {% if unread_notifications_count > 0 %}
+          <span class="nav-badge" id="sidebarNotifBadge">{{ unread_notifications_count }}</span>
+          {% endif %}
+        </a>
+
+        <a href="{{ url_for('progress') }}" class="nav-link {% if request.endpoint == 'progress' %}active{% endif %}">
+          <i class="fas fa-chart-line" style="width: 20px;"></i>
+          <span>Progress Tracker</span>
+        </a>
+
+        <a href="{{ url_for('profile') }}" class="nav-link {% if request.endpoint == 'profile' %}active{% endif %}">
+          <i class="fas fa-user-circle" style="width: 20px;"></i>
+          <span>Profile & Goals</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="{{ url_for('profile') }}" class="user-mini">
+          <div class="avatar-circle">
+            {% if current_user.avatar == 'robot' %}
+              <i class="fas fa-robot"></i>
+            {% elif current_user.avatar == 'book-open' %}
+              <i class="fas fa-book-open"></i>
+            {% elif current_user.avatar == 'brain' %}
+              <i class="fas fa-brain"></i>
+            {% elif current_user.avatar == 'atom' %}
+              <i class="fas fa-atom"></i>
+            {% else %}
+              <i class="fas fa-graduation-cap"></i>
+            {% endif %}
+          </div>
+          <div style="min-width: 0;">
+            <div class="user-meta-name">{{ current_user.full_name or current_user.username }}</div>
+            <div class="user-meta-role">{{ current_user.major or 'Student' }}</div>
+          </div>
+        </a>
+
+        <a href="{{ url_for('logout') }}" class="btn-icon" title="Logout" style="flex-shrink: 0;">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
+    </aside>
+    {% endif %}
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      {% if current_user %}
+      <!-- Topbar Header -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle navigation">
+            <i class="fas fa-bars"></i>
+          </button>
+          <div class="page-title-group">
+            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            <p>{% block page_subtitle %}Welcome back, organize your study and ace your goals.{% endblock %}</p>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Quick Add Button -->
+          <button class="btn btn-primary btn-sm" onclick="openModal('quickAddModal')">
+            <i class="fas fa-plus"></i>
+            <span>Quick Add</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button class="btn-icon" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+            <i class="fas fa-sun" id="themeToggleIcon"></i>
+          </button>
+
+          <!-- Notification Bell Dropdown -->
+          <div class="notif-wrapper">
+            <button class="btn-icon" id="notifBellBtn" title="Notifications & Reminders">
+              <i class="fas fa-bell"></i>
+              {% if unread_notifications_count > 0 %}
+              <span class="notif-badge" id="notifBellBadge">{{ unread_notifications_count }}</span>
+              {% endif %}
+            </button>
+
+            <div class="notif-dropdown" id="notifDropdown">
+              <div class="notif-dropdown-header">
+                <h4>Notifications</h4>
+                <a href="{{ url_for('notifications') }}" style="font-size: 0.75rem; color: var(--accent-primary); text-decoration: none;">View All</a>
+              </div>
+              <div class="notif-list">
+                {% if recent_notifications %}
+                  {% for n in recent_notifications %}
+                  <div class="notif-item {% if not n.is_read %}unread{% endif %}" onclick="markNotificationAsRead({{ n.id }}, this)">
+                    <div style="font-size: 1.1rem; color: var(--accent-primary);">
+                      {% if n.type == 'deadline' %}
+                        <i class="fas fa-stopwatch text-danger"></i>
+                      {% elif n.type == 'timetable' %}
+                        <i class="fas fa-calendar-check text-info"></i>
+                      {% elif n.type == 'streak' %}
+                        <i class="fas fa-fire text-warning"></i>
+                      {% else %}
+                        <i class="fas fa-info-circle text-primary"></i>
+                      {% endif %}
+                    </div>
+                    <div style="flex-grow: 1;">
+                      <div class="notif-item-title">{{ n.title }}</div>
+                      <div class="notif-item-msg">{{ n.message }}</div>
+                      <div class="notif-item-time">{{ n.created_at[:16] }}</div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    <i class="fas fa-check-circle" style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent-success);"></i>
+                    <div>All caught up! No notifications.</div>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+      {% endif %}
+
+      <!-- Content Body -->
+      <main class="content-body">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="flash-container">
+            {% for category, message in messages %}
+            <div class="flash-msg flash-{{ category }}">
+              <div style="display: flex; align-items: center; gap: 0.65rem;">
+                {% if category == 'success' %}
+                  <i class="fas fa-check-circle"></i>
+                {% elif category == 'error' %}
+                  <i class="fas fa-exclamation-circle"></i>
+                {% elif category == 'warning' %}
+                  <i class="fas fa-exclamation-triangle"></i>
+                {% else %}
+                  <i class="fas fa-info-circle"></i>
+                {% endif %}
+                <span>{{ message }}</span>
+              </div>
+              <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  {% if current_user %}
+  <!-- Quick Add Unified Modal -->
+  <div class="modal-overlay" id="quickAddModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><i class="fas fa-bolt" style="color: var(--accent-warning);"></i> Quick Add Item</h3>
+        <button class="btn-icon" onclick="closeModal('quickAddModal')" style="width: 30px; height: 30px;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+          <button type="button" class="btn btn-sm btn-primary" id="qaTabTask" onclick="switchQuickAddTab('task')">
+            <i class="fas fa-check"></i> New Task
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="qaTabDeadline" onclick="switchQuickAddTab('deadline')">
+            <i class="fas fa-stopwatch"></i> New Deadline
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="qaTabSlot" onclick="switchQuickAddTab('slot')">
+            <i class="fas fa-calendar-plus"></i> Timetable Slot
+          </button>
+        </div>
+
+        <!-- Task Form -->
+        <form action="{{ url_for('add_task') }}" method="POST" id="qaTaskForm">
+          <div class="form-group">
+            <label>Task Title *</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Read Chapters 3-4 and solve exercises" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Subject / Course</label>
+              <input type="text" name="subject" class="form-control" placeholder="e.g. Algorithms">
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select name="priority" class="form-control">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Due Date</label>
+              <input type="date" name="due_date" class="form-control" value="{{ today_date_str }}">
+            </div>
+            <div class="form-group">
+              <label>Estimated Hours</label>
+              <input type="number" step="0.5" name="estimated_hours" class="form-control" value="1.5">
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Task</button>
+          </div>
+        </form>
+
+        <!-- Deadline Form -->
+        <form action="{{ url_for('add_deadline') }}" method="POST" id="qaDeadlineForm" style="display: none;">
+          <div class="form-group">
+            <label>Deadline Title *</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Final Project Submission" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Subject *</label>
+              <input type="text" name="subject" class="form-control" placeholder="e.g. Database Systems" required>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select name="category" class="form-control">
+                <option value="Assignment">Assignment</option>
+                <option value="Exam">Exam</option>
+                <option value="Project">Project</option>
+                <option value="Quiz">Quiz</option>
+                <option value="Term Paper">Term Paper</option>
+                <option value="Lab Report">Lab Report</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Due Date *</label>
+              <input type="date" name="due_date" class="form-control" required value="{{ today_date_str }}">
+            </div>
+            <div class="form-group">
+              <label>Due Time</label>
+              <input type="time" name="due_time" class="form-control" value="23:59">
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Set Deadline</button>
+          </div>
+        </form>
+
+        <!-- Timetable Slot Form -->
+        <form action="{{ url_for('api_timetable_add') }}" method="POST" id="qaSlotForm" style="display: none;">
+          <div class="form-group">
+            <label>Subject / Class Name *</label>
+            <input type="text" name="subject" class="form-control" placeholder="e.g. Machine Learning" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Day of Week *</label>
+              <select name="day_of_week" class="form-control" required>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Study Technique</label>
+              <select name="technique" class="form-control">
+                <option value="Lecture & Review">Lecture & Review</option>
+                <option value="Deep Work">Deep Work</option>
+                <option value="Pomodoro">Pomodoro</option>
+                <option value="Problem Solving">Problem Solving</option>
+                <option value="Feynman Technique">Feynman Technique</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Start Time *</label>
+              <input type="time" name="start_time" class="form-control" value="09:00" required>
+            </div>
+            <div class="form-group">
+              <label>End Time *</label>
+              <input type="time" name="end_time" class="form-control" value="10:30" required>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-left: 0; padding-right: 0; margin-bottom: -0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save to Schedule</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchQuickAddTab(tab) {
+      document.getElementById('qaTaskForm').style.display = tab === 'task' ? 'block' : 'none';
+      document.getElementById('qaDeadlineForm').style.display = tab === 'deadline' ? 'block' : 'none';
+      document.getElementById('qaSlotForm').style.display = tab === 'slot' ? 'block' : 'none';
+
+      document.getElementById('qaTabTask').className = tab === 'task' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+      document.getElementById('qaTabDeadline').className = tab === 'deadline' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+      document.getElementById('qaTabSlot').className = tab === 'slot' ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+    }
+  </script>
+  {% endif %}
+
+  <!-- Core JavaScript Scripts -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/timer.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/countdown.js') }}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

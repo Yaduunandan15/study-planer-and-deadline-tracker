@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+
+{% block title %}Deadline Tracker - StudyFlow{% endblock %}
+{% block page_title %}Deadline Tracker{% endblock %}
+{% block page_subtitle %}Never miss an exam, assignment, or project deadline with live countdown tracking.{% endblock %}
+
+{% block content %}
+<!-- Top Action Toolbar & View Switcher -->
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+  <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <!-- Filter Pills -->
+    <a href="{{ url_for('deadlines', filter='all') }}" class="btn btn-sm {% if filter_type == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">
+      All Deadlines
+    </a>
+    <a href="{{ url_for('deadlines', filter='pending') }}" class="btn btn-sm {% if filter_type == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Pending
+    </a>
+    <a href="{{ url_for('deadlines', filter='submitted') }}" class="btn btn-sm {% if filter_type == 'submitted' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Submitted
+    </a>
+  </div>
+
+  <div style="display: flex; gap: 0.75rem; align-items: center;">
+    <!-- View Switcher -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.2rem; display: flex;">
+      <button type="button" class="btn btn-sm btn-primary" id="viewCardsBtn" onclick="switchDeadlineView('cards')">
+        <i class="fas fa-th-large"></i> Cards
+      </button>
+      <button type="button" class="btn btn-sm btn-secondary" id="viewCalendarBtn" onclick="switchDeadlineView('calendar')">
+        <i class="fas fa-calendar-alt"></i> Calendar
+      </button>
+    </div>
+
+    <!-- Add Deadline Button -->
+    <button class="btn btn-primary btn-sm" onclick="openModal('addDeadlineModal')">
+      <i class="fas fa-plus"></i> Add Deadline
+    </button>
+  </div>
+</div>
+
+<!-- VIEW 1: Countdown Cards View -->
+<div id="deadlinesCardsView">
+  {% if deadlines %}
+  <div class="grid-cols-2">
+    {% for d in deadlines %}
+    <div class="card deadline-card {{ d.urgency }}" id="deadline-card-{{ d.id }}">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
+            <span class="badge {{ d.badge_class }}">
+              {{ d.urgency_label }}
+            </span>
+            <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-secondary);">
+              {{ d.category }}
+            </span>
+            {% if d.weight_percent %}
+            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818CF8;">
+              {{ d.weight_percent }}% Weight
+            </span>
+            {% endif %}
+          </div>
+
+          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem; {% if d.is_submitted %}text-decoration: line-through; opacity: 0.7;{% endif %}">
+            {{ d.title }}
+          </h3>
+
+          <div style="font-size: 0.85rem; color: var(--accent-primary); font-weight: 600;">
+            <i class="fas fa-book-open"></i> {{ d.subject }}
+          </div>
+        </div>
+
+        <button class="btn-icon" style="width: 36px; height: 36px;" title="Toggle Submitted" onclick="toggleDeadlineSubmitted({{ d.id }}, this)">
+          {% if d.is_submitted %}
+            <i class="fas fa-check-circle text-success" style="font-size: 1.2rem;"></i>
+          {% else %}
+            <i class="far fa-circle" style="font-size: 1.2rem;"></i>
+          {% endif %}
+        </button>
+      </div>
+
+      <!-- Live Real-Time Countdown Timer Block -->
+      <div class="countdown-clock" data-countdown-target="{{ d.due_date }}T{{ d.due_time or '23:59' }}:00" data-submitted="{{ 'true' if d.is_submitted else 'false' }}">
+        <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Days</div></div>
+        <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Hours</div></div>
+        <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Mins</div></div>
+        <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Secs</div></div>
+      </div>
+
+      <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 0.75rem; margin-top: 0.75rem;">
+        <div>
+          <i class="far fa-calendar-alt"></i> Due: <strong>{{ d.due_date }}</strong> at {{ d.due_time or '23:59' }}
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn-icon" style="width: 30px; height: 30px;" title="Edit Deadline" onclick="openEditDeadlineModal({{ d.id }}, '{{ d.title|escape }}', '{{ d.subject|escape }}', '{{ d.category }}', '{{ d.due_date }}', '{{ d.due_time or '23:59' }}', {{ d.weight_percent }}, '{{ d.priority }}', '{{ d.description|escape }}', {{ d.is_submitted }})">
+            <i class="fas fa-edit"></i>
+          </button>
+          <form action="{{ url_for('delete_deadline', deadline_id=d.id) }}" method="POST" onsubmit="return confirm('Delete this deadline?');">
+            <button type="submit" class="btn-icon" style="width: 30px; height: 30px; color: var(--accent-danger);" title="Delete Deadline">
+              <i class="fas fa-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {% if d.description %}
+      <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.5rem; background: var(--bg-tertiary); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);">
+        {{ d.description }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 3.5rem 1rem; color: var(--text-muted);">
+    <i class="fas fa-stopwatch" style="font-size: 3rem; color: var(--accent-danger); margin-bottom: 1rem;"></i>
+    <div style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem;">No deadlines matching criteria</div>
+    <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Set up your exams, lab submissions, and coursework due dates.</p>
+    <button class="btn btn-primary" onclick="openModal('addDeadlineModal')">
+      <i class="fas fa-plus"></i> Add Deadline
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- VIEW 2: Monthly Calendar View -->
+<div id="deadlinesCalendarView" style="display: none;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-calendar-alt" style="color: var(--accent-primary);"></i>
+        Monthly Deadline Overview ({{ today_date_str[:7] }})
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        Click on any highlighted day to see due deliverables
+      </div>
+    </div>
+
+    <!-- Calendar Grid -->
+    <div id="monthlyCalendarContainer"></div>
+  </div>
+</div>
+
+<!-- Add Deadline Modal -->
+<div class="modal-overlay" id="addDeadlineModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i class="fas fa-stopwatch" style="color: var(--accent-danger);"></i> Set New Deadline</h3>
+      <button class="btn-icon" onclick="closeModal('addDeadlineModal')" style="width: 30px; height: 30px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form action="{{ url_for('add_deadline') }}" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Deadline Title *</label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Midterm Examination / Final Project" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Subject / Course *</label>
+            <input type="text" name="subject" class="form-control" placeholder="e.g. Operating Systems" required list="deadlineSubjects">
+            <datalist id="deadlineSubjects">
+              {% for s in subjects %}
+              <option value="{{ s }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select name="category" class="form-control">
+              {% for c in categories %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Due Date *</label>
+            <input type="date" name="due_date" class="form-control" value="{{ today_date_str }}" required>
+          </div>
+          <div class="form-group">
+            <label>Due Time</label>
+            <input type="time" name="due_time" class="form-control" value="23:59">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Weight (% of grade)</label>
+            <input type="number" step="1" name="weight_percent" class="form-control" value="15">
+          </div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select name="priority" class="form-control">
+              <option value="Urgent">Urgent</option>
+              <option value="High" selected>High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Description / Guidelines</label>
+          <textarea name="description" class="form-control" rows="2" placeholder="Submission portal, guidelines, criteria"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addDeadlineModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Deadline</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Deadline Modal -->
+<div class="modal-overlay" id="editDeadlineModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i class="fas fa-edit" style="color: var(--accent-primary);"></i> Edit Deadline</h3>
+      <button class="btn-icon" onclick="closeModal('editDeadlineModal')" style="width: 30px; height: 30px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form id="editDeadlineForm" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Deadline Title *</label>
+          <input type="text" id="editDeadlineTitle" name="title" class="form-control" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Subject *</label>
+            <input type="text" id="editDeadlineSubject" name="subject" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="editDeadlineCategory" name="category" class="form-control">
+              {% for c in categories %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Due Date *</label>
+            <input type="date" id="editDeadlineDueDate" name="due_date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Due Time</label>
+            <input type="time" id="editDeadlineDueTime" name="due_time" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Weight (%)</label>
+            <input type="number" step="1" id="editDeadlineWeight" name="weight_percent" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select id="editDeadlinePriority" name="priority" class="form-control">
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="editDeadlineDescription" name="description" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="editDeadlineSubmitted" name="is_submitted" value="1">
+            <span>Mark as Submitted / Completed</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editDeadlineModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Deadline</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function switchDeadlineView(view) {
+    const cards = document.getElementById('deadlinesCardsView');
+    const calendar = document.getElementById('deadlinesCalendarView');
+    const btnCards = document.getElementById('viewCardsBtn');
+    const btnCal = document.getElementById('viewCalendarBtn');
+
+    if (view === 'calendar') {
+      cards.style.display = 'none';
+      calendar.style.display = 'block';
+      btnCards.className = 'btn btn-sm btn-secondary';
+      btnCal.className = 'btn btn-sm btn-primary';
+      renderMonthlyCalendar();
+    } else {
+      cards.style.display = 'block';
+      calendar.style.display = 'none';
+      btnCards.className = 'btn btn-sm btn-primary';
+      btnCal.className = 'btn btn-sm btn-secondary';
+    }
+  }
+
+  function openEditDeadlineModal(id, title, subject, category, dueDate, dueTime, weight, priority, desc, isSubmitted) {
+    document.getElementById('editDeadlineForm').action = `/deadlines/edit/${id}`;
+    document.getElementById('editDeadlineTitle').value = title;
+    document.getElementById('editDeadlineSubject').value = subject;
+    document.getElementById('editDeadlineCategory').value = category;
+    document.getElementById('editDeadlineDueDate').value = dueDate;
+    document.getElementById('editDeadlineDueTime').value = dueTime;
+    document.getElementById('editDeadlineWeight').value = weight;
+    document.getElementById('editDeadlinePriority').value = priority;
+    document.getElementById('editDeadlineDescription').value = desc || '';
+    document.getElementById('editDeadlineSubmitted').checked = (isSubmitted === 1);
+    openModal('editDeadlineModal');
+  }
+
+  // Monthly Calendar Renderer
+  const deadlineEvents = [
+    {% for d in deadlines %}
+    {
+      id: {{ d.id }},
+      title: "{{ d.title|escape }}",
+      date: "{{ d.due_date }}",
+      subject: "{{ d.subject|escape }}",
+      urgency: "{{ d.urgency }}",
+      isSubmitted: {{ 'true' if d.is_submitted else 'false' }}
+    },
+    {% endfor %}
+  ];
+
+  function renderMonthlyCalendar() {
+    const container = document.getElementById('monthlyCalendarContainer');
+    if (!container) return;
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth(); // 0-indexed
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0 is Sun
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    let html = `
+      <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; font-weight: 600; font-size: 0.85rem; margin-bottom: 8px;">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+    `;
+
+    // Blank cells before first day
+    for (let i = 0; i < firstDay; i++) {
+      html += `<div style="background: var(--bg-tertiary); opacity: 0.3; border-radius: var(--radius-sm); min-height: 85px;"></div>`;
+    }
+
+    // Days of current month
+    for (let day = 1; day <= totalDays; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isToday = (day === today.getDate());
+      const eventsThisDay = deadlineEvents.filter(e => e.date === dateStr);
+
+      html += `
+        <div style="background: var(--bg-secondary); border: 1px solid ${isToday ? 'var(--accent-primary)' : 'var(--border-color)'}; border-radius: var(--radius-sm); min-height: 85px; padding: 6px; display: flex; flex-direction: column;">
+          <div style="font-size: 0.8rem; font-weight: 700; ${isToday ? 'color: var(--accent-primary);' : ''}">${day}</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+            ${eventsThisDay.map(e => `
+              <div style="font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; background: ${e.isSubmitted ? 'rgba(148,163,184,0.2)' : 'rgba(239,68,68,0.25)'}; color: ${e.isSubmitted ? 'var(--text-muted)' : '#F87171'}; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${e.title} (${e.subject})">
+                ${e.title}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - StudyFlow{% endblock %}
+{% block page_title %}Study Dashboard{% endblock %}
+{% block page_subtitle %}Hello, {{ current_user.full_name or current_user.username }}! Here is your study plan and deadlines for {{ today_day_name }}.{% endblock %}
+
+{% block content %}
+<!-- Top Welcome & Streak Banner -->
+<div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(236, 72, 153, 0.15)); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <div style="width: 50px; height: 50px; border-radius: var(--radius-md); background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #F59E0B;">
+      🔥
+    </div>
+    <div>
+      <div style="font-size: 1.15rem; font-weight: 700;">
+        {{ streak_days }}-Day Study Streak Active!
+      </div>
+      <div style="font-size: 0.82rem; color: var(--text-secondary);">
+        {% if streak_days > 0 %}
+          Consistency is the key to mastery. Keep up the brilliant pace!
+        {% else %}
+          Complete a study session today to start your daily streak!
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 0.75rem;">
+    <button class="btn btn-secondary btn-sm" onclick="NotificationManager.requestPermission()">
+      <i class="fas fa-bell"></i> Enable Browser Alerts
+    </button>
+    <a href="{{ url_for('planner') }}" class="btn btn-primary btn-sm">
+      <i class="fas fa-calendar-alt"></i> View Full Timetable
+    </a>
+  </div>
+</div>
+
+<!-- 4 Key Stat Cards -->
+<div class="grid-cols-4">
+  <!-- Study Hours This Week -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="background-color: rgba(99, 102, 241, 0.15); color: #818CF8;">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ total_week_hours }} <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted);">/ {{ current_user.target_weekly_hours or 20 }}h</span></div>
+      <div class="stat-label">Study Hours This Week</div>
+    </div>
+  </div>
+
+  <!-- Pending Tasks -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.15); color: #FBBF24;">
+      <i class="fas fa-tasks"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ pending_tasks }}</div>
+      <div class="stat-label">Tasks To Complete</div>
+    </div>
+  </div>
+
+  <!-- Upcoming Deadlines -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="background-color: rgba(239, 68, 68, 0.15); color: #F87171;">
+      <i class="fas fa-stopwatch"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ upcoming_deadlines|length }}</div>
+      <div class="stat-label">Active Deadlines</div>
+    </div>
+  </div>
+
+  <!-- Today's Classes / Slots -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="background-color: rgba(16, 185, 129, 0.15); color: #34D399;">
+      <i class="fas fa-calendar-day"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ today_slots|length }}</div>
+      <div class="stat-label">Sessions Scheduled Today</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main 2-Column Dashboard Grid -->
+<div class="grid-cols-2">
+  <!-- Left Column: Focus Study Timer & Today's Schedule -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Focus / Pomodoro Study Timer Card -->
+    <div class="card timer-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+          <i class="fas fa-stopwatch" style="color: var(--accent-primary);"></i> Focus & Study Timer
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Auto-logs to progress</div>
+      </div>
+
+      <div class="timer-modes">
+        <button type="button" class="timer-mode-btn active" data-mode="pomodoro">Pomodoro (25m)</button>
+        <button type="button" class="timer-mode-btn" data-mode="deepWork">Deep Work (50m)</button>
+        <button type="button" class="timer-mode-btn" data-mode="shortBreak">Short Break (5m)</button>
+        <button type="button" class="timer-mode-btn" data-mode="longBreak">Long Break (15m)</button>
+      </div>
+
+      <div class="timer-display" id="timerDisplay">25:00</div>
+
+      <div style="max-width: 320px; margin: 0 auto 1.25rem auto;">
+        <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Active Study Subject:</label>
+        <select class="form-control" id="timerSubjectSelect" style="text-align: center; font-size: 0.85rem; padding: 0.45rem;">
+          <option value="General Study">General Study / Homework</option>
+          {% for s in today_slots %}
+          <option value="{{ s.subject }}">{{ s.subject }}</option>
+          {% endfor %}
+          <option value="Exam Preparation">Exam Preparation</option>
+          <option value="Reading & Research">Reading & Research</option>
+        </select>
+      </div>
+
+      <div class="timer-controls">
+        <button type="button" class="btn btn-primary" id="timerToggleBtn" style="padding: 0.65rem 1.75rem; font-weight: 600;">
+          <i class="fas fa-play"></i> Start Focus
+        </button>
+        <button type="button" class="btn btn-secondary" id="timerResetBtn" title="Reset Timer">
+          <i class="fas fa-redo"></i> Reset
+        </button>
+      </div>
+    </div>
+
+    <!-- Today's Schedule Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-calendar-day" style="color: var(--accent-info);"></i> Today's Schedule ({{ today_day_name }})
+        </div>
+        <a href="{{ url_for('planner') }}" class="btn btn-secondary btn-sm">Full Timetable</a>
+      </div>
+
+      {% if today_slots %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for s in today_slots %}
+        <div style="background-color: var(--bg-secondary); border-left: 4px solid {{ s.color }}; border-radius: var(--radius-md); padding: 0.85rem 1rem; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+          <div>
+            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.2rem;">{{ s.subject }}</div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.75rem;">
+              <span><i class="far fa-clock"></i> {{ s.start_time }} - {{ s.end_time }}</span>
+              {% if s.location %}
+              <span><i class="fas fa-map-marker-alt"></i> {{ s.location }}</span>
+              {% endif %}
+            </div>
+            {% if s.notes %}
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">
+              <i class="fas fa-sticky-note"></i> {{ s.notes }}
+            </div>
+            {% endif %}
+          </div>
+          <span class="badge" style="background-color: rgba(99, 102, 241, 0.15); color: {{ s.color }};">
+            {{ s.technique }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <i class="far fa-smile-beam" style="font-size: 2.2rem; color: var(--accent-primary); margin-bottom: 0.75rem;"></i>
+        <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.35rem;">No classes scheduled for {{ today_day_name }}!</div>
+        <p style="font-size: 0.8rem; margin-bottom: 1rem;">Take time for self-directed study, catch up on tasks, or plan ahead.</p>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('quickAddModal'); switchQuickAddTab('slot');">
+          <i class="fas fa-plus"></i> Add Timetable Slot
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right Column: Urgent Deadlines & Priority Tasks -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Urgent Deadlines Widget -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-stopwatch" style="color: var(--accent-danger);"></i> Upcoming Deadlines
+        </div>
+        <a href="{{ url_for('deadlines') }}" class="btn btn-secondary btn-sm">All Deadlines</a>
+      </div>
+
+      {% if upcoming_deadlines %}
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        {% for d in upcoming_deadlines %}
+        <div class="deadline-card card" style="padding: 1rem; margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="font-weight: 600; font-size: 0.95rem;">{{ d.title }}</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">
+                <span style="font-weight: 600; color: var(--accent-primary);">{{ d.subject }}</span> • {{ d.category }} • Due: {{ d.due_date }} at {{ d.due_time or '23:59' }}
+              </div>
+            </div>
+            <button class="btn-icon" style="width: 32px; height: 32px;" title="Mark Submitted" onclick="toggleDeadlineSubmitted({{ d.id }}, this)">
+              <i class="far fa-check-circle"></i>
+            </button>
+          </div>
+
+          <!-- Live Countdown Clock -->
+          <div class="countdown-clock" data-countdown-target="{{ d.due_date }}T{{ d.due_time or '23:59' }}:00" data-submitted="{{ 'true' if d.is_submitted else 'false' }}">
+            <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Days</div></div>
+            <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Hours</div></div>
+            <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Mins</div></div>
+            <div class="countdown-unit"><div class="countdown-num">--</div><div class="countdown-lbl">Secs</div></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <i class="fas fa-check-double" style="font-size: 2.2rem; color: var(--accent-success); margin-bottom: 0.75rem;"></i>
+        <div style="font-size: 0.95rem; font-weight: 600;">No pending deadlines right now!</div>
+        <p style="font-size: 0.8rem; margin-bottom: 1rem;">Great work staying on top of your submissions.</p>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('quickAddModal'); switchQuickAddTab('deadline');">
+          <i class="fas fa-plus"></i> Set New Deadline
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Priority Tasks Widget -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-tasks" style="color: var(--accent-warning);"></i> Priority Tasks
+        </div>
+        <a href="{{ url_for('tasks') }}" class="btn btn-secondary btn-sm">Task Manager</a>
+      </div>
+
+      {% if recent_tasks %}
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for t in recent_tasks %}
+        <div class="card" id="task-card-{{ t.id }}" style="padding: 0.85rem 1rem; margin-bottom: 0; background-color: var(--bg-secondary);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-grow: 1;">
+              <button onclick="toggleTaskStatus({{ t.id }}, this)" style="background: none; border: none; font-size: 1.15rem; color: var(--text-muted); cursor: pointer;">
+                <i class="far fa-circle"></i>
+              </button>
+              <div>
+                <div class="task-title-text" style="font-size: 0.9rem; font-weight: 600;">{{ t.title }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem;">
+                  {% if t.subject %}<span>{{ t.subject }}</span> •{% endif %}
+                  {% if t.due_date %}<span>Due {{ t.due_date }}</span>{% endif %}
+                  {% if t.subtask_summary %}
+                  <span style="color: var(--accent-info); font-weight: 500;">
+                    <i class="fas fa-list-check"></i> {{ t.subtask_summary }}
+                  </span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <span class="badge badge-{{ t.priority|lower }}">
+              {{ t.priority }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <i class="fas fa-clipboard-check" style="font-size: 2.2rem; color: var(--accent-info); margin-bottom: 0.75rem;"></i>
+        <div style="font-size: 0.95rem; font-weight: 600;">All tasks completed!</div>
+        <p style="font-size: 0.8rem; margin-bottom: 1rem;">Add what you plan to accomplish next.</p>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('quickAddModal'); switchQuickAddTab('task');">
+          <i class="fas fa-plus"></i> Add New Task
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

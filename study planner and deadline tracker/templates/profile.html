@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile & Goals - StudyFlow{% endblock %}
+{% block page_title %}Student Profile & Settings{% endblock %}
+{% block page_subtitle %}Manage your study goals, account details, preferences, and data backup.{% endblock %}
+
+{% block content %}
+<div class="grid-cols-3" style="align-items: flex-start;">
+  <!-- Left Column: User Summary & Lifetime Stats Card -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Profile Card -->
+    <div class="card" style="text-align: center; padding: 2rem 1.5rem;">
+      <div style="margin: 0 auto 1.25rem auto; width: 84px; height: 84px; border-radius: var(--radius-full); background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; color: white; box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);">
+        {% if current_user.avatar == 'robot' %}
+          <i class="fas fa-robot"></i>
+        {% elif current_user.avatar == 'book-open' %}
+          <i class="fas fa-book-open"></i>
+        {% elif current_user.avatar == 'brain' %}
+          <i class="fas fa-brain"></i>
+        {% elif current_user.avatar == 'atom' %}
+          <i class="fas fa-atom"></i>
+        {% else %}
+          <i class="fas fa-graduation-cap"></i>
+        {% endif %}
+      </div>
+
+      <h2 style="font-size: 1.35rem; font-weight: 700; margin-bottom: 0.25rem;">
+        {{ current_user.full_name or current_user.username }}
+      </h2>
+      <div style="font-size: 0.85rem; color: var(--accent-primary); font-weight: 600; margin-bottom: 0.5rem;">
+        {{ current_user.major or 'Student' }}
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+        {{ current_user.institution or 'Higher Education' }} • Joined {{ current_user.created_at[:10] }}
+      </div>
+
+      {% if current_user.bio %}
+      <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; border-top: 1px solid var(--border-color); padding-top: 1rem; text-align: left;">
+        "{{ current_user.bio }}"
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Lifetime Statistics Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-medal" style="color: var(--accent-warning);"></i> Lifetime Achievements
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem;">
+          <span style="color: var(--text-secondary);"><i class="fas fa-clock" style="width: 20px; color: var(--accent-primary);"></i> Total Study Time</span>
+          <span style="font-weight: 700;">{{ stats.total_hours }} hours</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem;">
+          <span style="color: var(--text-secondary);"><i class="fas fa-check-circle" style="width: 20px; color: var(--accent-success);"></i> Tasks Completed</span>
+          <span style="font-weight: 700;">{{ stats.total_tasks_done }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem;">
+          <span style="color: var(--text-secondary);"><i class="fas fa-stopwatch" style="width: 20px; color: var(--accent-danger);"></i> Deadlines Met</span>
+          <span style="font-weight: 700;">{{ stats.total_deadlines_met }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem;">
+          <span style="color: var(--text-secondary);"><i class="fas fa-fire" style="width: 20px; color: var(--accent-warning);"></i> Current Streak</span>
+          <span style="font-weight: 700;">{{ stats.streak }} days</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem;">
+          <span style="color: var(--text-secondary);"><i class="fas fa-book-reader" style="width: 20px; color: var(--accent-info);"></i> Logged Sessions</span>
+          <span style="font-weight: 700;">{{ stats.total_sessions }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Export -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-download" style="color: var(--accent-info);"></i> Backup & Export
+        </div>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Export your complete timetable, deadlines, tasks, and study records into a JSON file.
+      </p>
+      <a href="{{ url_for('export_data') }}" class="btn btn-secondary" style="width: 100%;">
+        <i class="fas fa-file-export"></i> Download StudyFlow Data
+      </a>
+    </div>
+  </div>
+
+  <!-- Right 2 Columns: Edit Profile & Settings Forms -->
+  <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- Edit Profile Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-user-edit" style="color: var(--accent-primary);"></i> Edit Personal Details
+        </div>
+      </div>
+
+      <form action="{{ url_for('update_profile') }}" method="POST">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" name="full_name" class="form-control" value="{{ current_user.full_name or '' }}" placeholder="Your Full Name">
+          </div>
+          <div class="form-group">
+            <label>Email Address *</label>
+            <input type="email" name="email" class="form-control" value="{{ current_user.email }}" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Major / Field of Study</label>
+            <input type="text" name="major" class="form-control" value="{{ current_user.major or '' }}" placeholder="e.g. Electrical Engineering">
+          </div>
+          <div class="form-group">
+            <label>University / School / Institution</label>
+            <input type="text" name="institution" class="form-control" value="{{ current_user.institution or '' }}" placeholder="e.g. State University">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Target Study Hours / Week</label>
+            <input type="number" step="0.5" name="target_weekly_hours" class="form-control" value="{{ current_user.target_weekly_hours or 20.0 }}">
+          </div>
+          <div class="form-group">
+            <label>Avatar Icon</label>
+            <select name="avatar" class="form-control">
+              <option value="graduation-cap" {% if current_user.avatar == 'graduation-cap' %}selected{% endif %}>🎓 Graduation Cap</option>
+              <option value="brain" {% if current_user.avatar == 'brain' %}selected{% endif %}>🧠 Brain / Thinking</option>
+              <option value="robot" {% if current_user.avatar == 'robot' %}selected{% endif %}>🤖 AI / Robot</option>
+              <option value="book-open" {% if current_user.avatar == 'book-open' %}selected{% endif %}>📖 Open Book</option>
+              <option value="atom" {% if current_user.avatar == 'atom' %}selected{% endif %}>⚛️ Atom / Science</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Bio / Academic Motivation</label>
+          <textarea name="bio" class="form-control" rows="3" placeholder="What are your academic ambitions? What drives your study habit?">{{ current_user.bio or '' }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Profile Changes
+        </button>
+      </form>
+    </div>
+
+    <!-- Preferences (Theme & Sound) -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-sliders-h" style="color: var(--accent-info);"></i> Preferences
+        </div>
+      </div>
+
+      <form action="{{ url_for('update_preferences') }}" method="POST">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Interface Theme</label>
+            <select name="theme" class="form-control">
+              <option value="dark" {% if current_user.theme == 'dark' %}selected{% endif %}>🌙 Dark Mode (Focus & Eye Relief)</option>
+              <option value="light" {% if current_user.theme == 'light' %}selected{% endif %}>☀️ Light Mode (Clean & High Contrast)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="display: flex; flex-direction: column; justify-content: center;">
+            <label style="margin-bottom: 0.75rem;">Audio Alerts</label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem;">
+              <input type="checkbox" name="sound_enabled" value="1" {% if current_user.sound_enabled %}checked{% endif %}>
+              <span>Enable synthesized chime alerts on timer completion</span>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-secondary">
+          <i class="fas fa-check"></i> Save Preferences
+        </button>
+      </form>
+    </div>
+
+    <!-- Security: Change Password -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-shield-alt" style="color: var(--accent-danger);"></i> Security & Password
+        </div>
+      </div>
+
+      <form action="{{ url_for('change_password') }}" method="POST">
+        <div class="form-group">
+          <label>Current Password *</label>
+          <input type="password" name="current_password" class="form-control" placeholder="••••••••" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>New Password * (min. 6 characters)</label>
+            <input type="password" name="new_password" class="form-control" placeholder="••••••••" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password *</label>
+            <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" required minlength="6">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-secondary">
+          <i class="fas fa-key"></i> Update Password
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

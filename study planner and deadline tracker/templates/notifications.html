@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Reminders & Notifications - StudyFlow{% endblock %}
+{% block page_title %}Reminders & Notification Center{% endblock %}
+{% block page_subtitle %}Real-time alerts for impending deadlines, scheduled classes, and study milestones.{% endblock %}
+
+{% block content %}
+<!-- Desktop Alerts Settings & Audio Tester Banner -->
+<div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.1));">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: rgba(99, 102, 241, 0.2); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: var(--accent-primary);">
+        <i class="fas fa-bell"></i>
+      </div>
+      <div>
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.2rem;">Push Notifications & Audio Reminders</h3>
+        <p style="font-size: 0.8rem; color: var(--text-secondary);">Enable browser notifications and audio chimes so you never miss a lecture or assignment.</p>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem;">
+      <button class="btn btn-secondary btn-sm" onclick="SoundManager.playChime('bell')">
+        <i class="fas fa-volume-up"></i> Test Audio Chime
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="NotificationManager.requestPermission()">
+        <i class="fas fa-desktop"></i> Enable Desktop Alerts
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Feed Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+  <div style="font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+    <span>All Notifications</span>
+    <span class="badge badge-medium">{{ notifications|length }}</span>
+  </div>
+
+  {% if notifications %}
+  <form action="{{ url_for('mark_all_notifications_read') }}" method="POST">
+    <button type="submit" class="btn btn-secondary btn-sm">
+      <i class="fas fa-check-double"></i> Mark All as Read
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Notification List -->
+{% if notifications %}
+<div style="display: flex; flex-direction: column; gap: 0.85rem;">
+  {% for n in notifications %}
+  <div class="card" id="notif-row-{{ n.id }}" style="padding: 1.15rem 1.25rem; margin-bottom: 0; {% if not n.is_read %}border-left: 4px solid var(--accent-primary); background-color: rgba(99, 102, 241, 0.05);{% endif %}">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;">
+      <div style="display: flex; align-items: flex-start; gap: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; background: {% if n.type == 'deadline' %}rgba(239, 68, 68, 0.15); color: #F87171;{% elif n.type == 'timetable' %}rgba(6, 182, 212, 0.15); color: #38BDF8;{% elif n.type == 'streak' %}rgba(245, 158, 11, 0.15); color: #FBBF24;{% else %}rgba(99, 102, 241, 0.15); color: #818CF8;{% endif %}">
+          {% if n.type == 'deadline' %}
+            <i class="fas fa-stopwatch"></i>
+          {% elif n.type == 'timetable' %}
+            <i class="fas fa-calendar-check"></i>
+          {% elif n.type == 'streak' %}
+            <i class="fas fa-fire"></i>
+          {% else %}
+            <i class="fas fa-info-circle"></i>
+          {% endif %}
+        </div>
+
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+            <span style="font-weight: 700; font-size: 0.95rem;">{{ n.title }}</span>
+            {% if not n.is_read %}
+            <span class="badge badge-urgent" style="font-size: 0.65rem; padding: 0.1rem 0.45rem;">New</span>
+            {% endif %}
+          </div>
+
+          <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 0.4rem;">
+            {{ n.message }}
+          </div>
+
+          <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 1rem;">
+            <span><i class="far fa-clock"></i> {{ n.created_at[:16] }}</span>
+            {% if n.link %}
+            <a href="{{ n.link }}" style="color: var(--accent-primary); font-weight: 600; text-decoration: none;">
+              Open Resource <i class="fas fa-arrow-right" style="font-size: 0.7rem;"></i>
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+        {% if not n.is_read %}
+        <button class="btn-icon" style="width: 32px; height: 32px;" title="Mark Read" onclick="markNotificationAsRead({{ n.id }}, document.getElementById('notif-row-{{ n.id }}'))">
+          <i class="fas fa-check"></i>
+        </button>
+        {% endif %}
+
+        <button class="btn-icon" style="width: 32px; height: 32px; color: var(--accent-danger);" title="Delete Notification" onclick="deleteNotification({{ n.id }})">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 3.5rem 1rem; color: var(--text-muted);">
+  <i class="fas fa-bell-slash" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+  <div style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem;">No notifications right now</div>
+  <p style="font-size: 0.85rem;">You are all caught up! As deadlines approach or study times arrive, alerts will appear here.</p>
+</div>
+{% endif %}
+
+<script>
+  async function deleteNotification(id) {
+    if (confirm('Delete this notification?')) {
+      try {
+        const res = await fetch(`/api/notifications/${id}/delete`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const row = document.getElementById(`notif-row-${id}`);
+          if (row) row.remove();
+        }
+      } catch (e) {
+        console.error("Failed to delete notification", e);
+      }
+    }
+  }
+</script>
+{% endblock %}

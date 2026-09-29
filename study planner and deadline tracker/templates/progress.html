@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block title %}Progress Tracker & Analytics - StudyFlow{% endblock %}
+{% block page_title %}Progress Tracker & Analytics{% endblock %}
+{% block page_subtitle %}Visualize study habits, subject time breakdown, completion metrics, and streaks.{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Streak & Goal Progress Highlight Card -->
+<div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.15)); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.75rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+    <!-- Streak -->
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <div style="width: 56px; height: 56px; border-radius: var(--radius-md); background: rgba(245, 158, 11, 0.25); border: 1px solid rgba(245, 158, 11, 0.4); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+        🔥
+      </div>
+      <div>
+        <div style="font-size: 1.4rem; font-weight: 800;">
+          {{ streak_days }} Days in a Row!
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+          Keep your momentum rolling. Studying every day builds effortless mastery.
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly Study Target Progress -->
+    <div style="min-width: 260px; flex-grow: 1; max-width: 400px;">
+      <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem;">
+        <span>Weekly Target ({{ week_hours }} / {{ target_hours }} hrs)</span>
+        <span style="color: var(--accent-primary);">{{ week_goal_percent }}%</span>
+      </div>
+      <div style="width: 100%; height: 10px; background: var(--bg-tertiary); border-radius: var(--radius-full); overflow: hidden;">
+        <div style="height: 100%; width: {{ week_goal_percent }}%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-success));"></div>
+      </div>
+    </div>
+
+    <!-- Log Session Button -->
+    <button class="btn btn-primary" onclick="openModal('logSessionModal')">
+      <i class="fas fa-plus-circle"></i> Log Study Time
+    </button>
+  </div>
+</div>
+
+<!-- 4 Progress KPI Cards -->
+<div class="grid-cols-4">
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: #818CF8;">
+      <i class="fas fa-hourglass-half"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ all_time_hours }}h</div>
+      <div class="stat-label">Total Hours Studied</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34D399;">
+      <i class="fas fa-check-double"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ task_rate }}%</div>
+      <div class="stat-label">Tasks Completed ({{ completed_tasks }}/{{ total_tasks }})</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24;">
+      <i class="fas fa-trophy"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ deadline_rate }}%</div>
+      <div class="stat-label">Deadlines Met ({{ submitted_deadlines }}/{{ total_deadlines }})</div>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon" style="background: rgba(6, 182, 212, 0.15); color: #38BDF8;">
+      <i class="fas fa-calendar-alt"></i>
+    </div>
+    <div>
+      <div class="stat-value">{{ month_hours }}h</div>
+      <div class="stat-label">Hours This Month</div>
+    </div>
+  </div>
+</div>
+
+<!-- Visual Analytics Charts Grid -->
+<div class="grid-cols-2">
+  <!-- Chart 1: Study Hours by Subject -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-chart-pie" style="color: var(--accent-primary);"></i>
+        Study Time by Subject
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Hours Breakdown</span>
+    </div>
+    <div style="position: relative; height: 260px;">
+      <canvas id="subjectHoursChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 2: Daily Study Activity (Past 14 Days) -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-chart-bar" style="color: var(--accent-info);"></i>
+        Daily Study Activity (Past 14 Days)
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Hours Logged</span>
+    </div>
+    <div style="position: relative; height: 260px;">
+      <canvas id="dailyActivityChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 3: Task Status Breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-tasks" style="color: var(--accent-warning);"></i>
+        Task Status Breakdown
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Total: {{ total_tasks }}</span>
+    </div>
+    <div style="position: relative; height: 240px;">
+      <canvas id="taskStatusChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Chart 4: Deadline Urgency Overview -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fas fa-stopwatch" style="color: var(--accent-danger);"></i>
+        Deadline Urgency Distribution
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Total: {{ total_deadlines }}</span>
+    </div>
+    <div style="position: relative; height: 240px;">
+      <canvas id="deadlineUrgencyChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Study Sessions Log Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <i class="fas fa-history" style="color: var(--accent-primary);"></i>
+      Recent Study Sessions
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="openModal('logSessionModal')">
+      <i class="fas fa-plus"></i> Log Session
+    </button>
+  </div>
+
+  {% if recent_sessions %}
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+          <th style="padding: 0.75rem 1rem;">Date</th>
+          <th style="padding: 0.75rem 1rem;">Subject</th>
+          <th style="padding: 0.75rem 1rem;">Duration</th>
+          <th style="padding: 0.75rem 1rem;">Technique</th>
+          <th style="padding: 0.75rem 1rem;">Notes</th>
+          <th style="padding: 0.75rem 1rem; text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in recent_sessions %}
+        <tr style="border-bottom: 1px solid var(--border-color); transition: background-color var(--transition-fast);">
+          <td style="padding: 0.75rem 1rem; font-weight: 600;">{{ s.session_date }}</td>
+          <td style="padding: 0.75rem 1rem; color: var(--accent-primary); font-weight: 600;">{{ s.subject }}</td>
+          <td style="padding: 0.75rem 1rem;">{{ s.duration_minutes }} mins ({{ (s.duration_minutes / 60)|round(1) }}h)</td>
+          <td style="padding: 0.75rem 1rem;">
+            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818CF8;">
+              {{ s.technique }}
+            </span>
+          </td>
+          <td style="padding: 0.75rem 1rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            {{ s.notes or '—' }}
+          </td>
+          <td style="padding: 0.75rem 1rem; text-align: right;">
+            <form action="{{ url_for('delete_study_session', session_id=s.id) }}" method="POST" onsubmit="return confirm('Delete this study log entry?');" style="display: inline;">
+              <button type="submit" class="btn-icon" style="width: 28px; height: 28px; color: var(--accent-danger);" title="Delete Log">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+    <i class="fas fa-book-reader" style="font-size: 2.5rem; color: var(--accent-primary); margin-bottom: 0.75rem;"></i>
+    <div style="font-size: 1rem; font-weight: 600;">No study sessions logged yet</div>
+    <p style="font-size: 0.8rem; margin-bottom: 1rem;">Use the Focus Timer or manually log your study sessions to start seeing analytics.</p>
+    <button class="btn btn-primary btn-sm" onclick="openModal('logSessionModal')">
+      <i class="fas fa-plus"></i> Log First Session
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Log Study Session Modal -->
+<div class="modal-overlay" id="logSessionModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i class="fas fa-book-reader" style="color: var(--accent-primary);"></i> Log Completed Study Session</h3>
+      <button class="btn-icon" onclick="closeModal('logSessionModal')" style="width: 30px; height: 30px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form action="{{ url_for('add_study_session') }}" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Subject / Topic *</label>
+          <input type="text" name="subject" class="form-control" placeholder="e.g. Data Structures" required list="studySubjectsList">
+          <datalist id="studySubjectsList">
+            {% for s in subjects %}
+            <option value="{{ s }}"></option>
+            {% endfor %}
+          </datalist>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Duration (Minutes) *</label>
+            <input type="number" step="5" min="5" name="duration_minutes" class="form-control" value="45" required>
+          </div>
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" name="session_date" class="form-control" value="{{ today_date_str }}" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Technique Used</label>
+          <select name="technique" class="form-control">
+            <option value="Pomodoro">Pomodoro (25/5 intervals)</option>
+            <option value="Deep Work">Deep Work (Distraction-free)</option>
+            <option value="Feynman Technique">Feynman Technique (Teach it)</option>
+            <option value="Active Recall & Flashcards">Active Recall & Flashcards</option>
+            <option value="Problem Solving">Problem Solving / Homework</option>
+            <option value="Lecture Review">Lecture Review</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Session Notes / Key Takeaways</label>
+          <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Solved binary tree questions 1-5, understood AVL rotation"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('logSessionModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Session</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% endblock %}

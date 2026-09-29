@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+
+{% block title %}Task Management - StudyFlow{% endblock %}
+{% block page_title %}Task Management{% endblock %}
+{% block page_subtitle %}Manage homework, coursework, study checklists, and research projects.{% endblock %}
+
+{% block content %}
+<!-- Top Metrics Bar -->
+<div class="grid-cols-4" style="margin-bottom: 1.5rem;">
+  <a href="{{ url_for('tasks', status='all') }}" style="text-decoration: none; color: inherit;">
+    <div class="card stat-card" style="padding: 1rem 1.25rem;">
+      <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: #818CF8; width: 44px; height: 44px; font-size: 1.2rem;">
+        <i class="fas fa-layer-group"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.4rem;">{{ counts.total }}</div>
+        <div class="stat-label">Total Tasks</div>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('tasks', status='Pending') }}" style="text-decoration: none; color: inherit;">
+    <div class="card stat-card" style="padding: 1rem 1.25rem;">
+      <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; width: 44px; height: 44px; font-size: 1.2rem;">
+        <i class="fas fa-hourglass-start"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.4rem;">{{ counts.pending }}</div>
+        <div class="stat-label">Pending</div>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('tasks', status='In Progress') }}" style="text-decoration: none; color: inherit;">
+    <div class="card stat-card" style="padding: 1rem 1.25rem;">
+      <div class="stat-icon" style="background: rgba(6, 182, 212, 0.15); color: #38BDF8; width: 44px; height: 44px; font-size: 1.2rem;">
+        <i class="fas fa-spinner"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.4rem;">{{ counts.in_progress }}</div>
+        <div class="stat-label">In Progress</div>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('tasks', status='Completed') }}" style="text-decoration: none; color: inherit;">
+    <div class="card stat-card" style="padding: 1rem 1.25rem;">
+      <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34D399; width: 44px; height: 44px; font-size: 1.2rem;">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size: 1.4rem;">{{ counts.completed }}</div>
+        <div class="stat-label">Completed</div>
+      </div>
+    </div>
+  </a>
+</div>
+
+<!-- Filter & Search Toolbar -->
+<div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+  <form method="GET" action="{{ url_for('tasks') }}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; flex-grow: 1;">
+      <!-- Search Input -->
+      <div style="position: relative; min-width: 220px; flex-grow: 1; max-width: 320px;">
+        <input type="text" name="q" class="form-control" placeholder="Search tasks..." value="{{ search_query }}" style="padding-left: 2rem;">
+        <i class="fas fa-search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+      </div>
+
+      <!-- Status Filter -->
+      <select name="status" class="form-control" style="width: auto; min-width: 130px;" onchange="this.form.submit()">
+        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="In Progress" {% if status_filter == 'In Progress' %}selected{% endif %}>In Progress</option>
+        <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+      </select>
+
+      <!-- Priority Filter -->
+      <select name="priority" class="form-control" style="width: auto; min-width: 130px;" onchange="this.form.submit()">
+        <option value="all" {% if priority_filter == 'all' %}selected{% endif %}>All Priorities</option>
+        <option value="Urgent" {% if priority_filter == 'Urgent' %}selected{% endif %}>Urgent</option>
+        <option value="High" {% if priority_filter == 'High' %}selected{% endif %}>High</option>
+        <option value="Medium" {% if priority_filter == 'Medium' %}selected{% endif %}>Medium</option>
+        <option value="Low" {% if priority_filter == 'Low' %}selected{% endif %}>Low</option>
+      </select>
+
+      <!-- Subject Filter -->
+      {% if subjects %}
+      <select name="subject" class="form-control" style="width: auto; min-width: 140px;" onchange="this.form.submit()">
+        <option value="all">All Subjects</option>
+        {% for s in subjects %}
+        <option value="{{ s }}" {% if subject_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+
+      <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+      {% if search_query or status_filter != 'all' or priority_filter != 'all' or subject_filter != 'all' %}
+      <a href="{{ url_for('tasks') }}" class="btn btn-secondary btn-sm" title="Clear Filters">Clear</a>
+      {% endif %}
+    </div>
+
+    <!-- Add Task Button -->
+    <button type="button" class="btn btn-primary btn-sm" onclick="openModal('addTaskModal')">
+      <i class="fas fa-plus"></i> New Task
+    </button>
+  </form>
+</div>
+
+<!-- Task List -->
+{% if tasks %}
+<div style="display: flex; flex-direction: column; gap: 1rem;">
+  {% for t in tasks %}
+  <div class="card" id="task-card-{{ t.id }}" style="padding: 1.25rem; {% if t.status == 'Completed' %}opacity: 0.8;{% endif %}">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+      <!-- Checkbox & Title Area -->
+      <div style="display: flex; align-items: flex-start; gap: 1rem; flex-grow: 1;">
+        <button onclick="toggleTaskStatus({{ t.id }}, this)" style="background: none; border: none; font-size: 1.35rem; cursor: pointer; color: {% if t.status == 'Completed' %}var(--accent-success){% else %}var(--text-muted){% endif %}; padding-top: 0.1rem;">
+          {% if t.status == 'Completed' %}
+            <i class="fas fa-check-circle text-success"></i>
+          {% else %}
+            <i class="far fa-circle"></i>
+          {% endif %}
+        </button>
+
+        <div style="flex-grow: 1;">
+          <div class="task-title-text" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; {% if t.status == 'Completed' %}text-decoration: line-through; color: var(--text-muted);{% endif %}">
+            {{ t.title }}
+          </div>
+
+          {% if t.description %}
+          <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; line-height: 1.4;">
+            {{ t.description }}
+          </div>
+          {% endif %}
+
+          <!-- Meta badges & Due date -->
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--text-muted);">
+            {% if t.subject %}
+            <span style="font-weight: 600; color: var(--accent-primary); background: rgba(99, 102, 241, 0.1); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm);">
+              <i class="fas fa-book"></i> {{ t.subject }}
+            </span>
+            {% endif %}
+
+            {% if t.due_date %}
+            <span>
+              <i class="far fa-calendar"></i> Due {{ t.due_date }} {% if t.due_time %}{{ t.due_time }}{% endif %}
+            </span>
+            {% endif %}
+
+            <span>
+              <i class="far fa-clock"></i> Est: {{ t.estimated_hours }}h {% if t.actual_hours %}(Act: {{ t.actual_hours }}h){% endif %}
+            </span>
+          </div>
+
+          <!-- Subtasks Checklist Section -->
+          {% if t.subtasks %}
+          <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color); max-width: 520px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+              <span>Subtasks ({{ t.completed_subtasks }}/{{ t.total_subtasks }})</span>
+              <span>{{ t.subtask_percent }}%</span>
+            </div>
+            <!-- Progress Bar -->
+            <div style="width: 100%; height: 5px; background: var(--bg-tertiary); border-radius: var(--radius-full); overflow: hidden; margin-bottom: 0.65rem;">
+              <div style="height: 100%; width: {{ t.subtask_percent }}%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-success));"></div>
+            </div>
+
+            <!-- Individual Subtask Items -->
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+              {% for s in t.subtasks %}
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; cursor: pointer;" class="{% if s.done %}line-through text-muted{% endif %}">
+                <input type="checkbox" {% if s.done %}checked{% endif %} onchange="toggleSubtask({{ t.id }}, {{ loop.index0 }}, this)" style="cursor: pointer;">
+                <span>{{ s.title }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Priority & Status Badges and Actions -->
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span class="badge badge-{{ t.priority|lower }}">
+          {{ t.priority }}
+        </span>
+
+        <span class="badge badge-{{ t.status|lower|replace(' ', '_') }} task-status-badge">
+          {{ t.status }}
+        </span>
+
+        <!-- Edit & Delete -->
+        <button class="btn-icon" style="width: 32px; height: 32px;" title="Edit Task" onclick="openEditTaskModal({{ t.id }}, '{{ t.title|escape }}', '{{ t.description|escape }}', '{{ t.subject|escape }}', '{{ t.priority }}', '{{ t.status }}', '{{ t.due_date or '' }}', '{{ t.due_time or '23:59' }}', {{ t.estimated_hours }}, {{ t.actual_hours }})">
+          <i class="fas fa-edit"></i>
+        </button>
+
+        <form action="{{ url_for('delete_task', task_id=t.id) }}" method="POST" onsubmit="return confirm('Delete this task?');">
+          <button type="submit" class="btn-icon" style="width: 32px; height: 32px; color: var(--accent-danger);" title="Delete Task">
+            <i class="fas fa-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 3.5rem 1rem; color: var(--text-muted);">
+  <i class="fas fa-clipboard-check" style="font-size: 3rem; color: var(--accent-primary); margin-bottom: 1rem;"></i>
+  <div style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.35rem;">No tasks found matching your filters</div>
+  <p style="font-size: 0.85rem; margin-bottom: 1.5rem;">Create a new task to stay organized and achieve your goals!</p>
+  <button class="btn btn-primary" onclick="openModal('addTaskModal')">
+    <i class="fas fa-plus"></i> Create New Task
+  </button>
+</div>
+{% endif %}
+
+<!-- Add Task Modal -->
+<div class="modal-overlay" id="addTaskModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i class="fas fa-plus-circle" style="color: var(--accent-primary);"></i> Create New Task</h3>
+      <button class="btn-icon" onclick="closeModal('addTaskModal')" style="width: 30px; height: 30px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form action="{{ url_for('add_task') }}" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Task Title *</label>
+          <input type="text" name="title" class="form-control" placeholder="e.g. Write Literature Review for Research Paper" required>
+        </div>
+
+        <div class="form-group">
+          <label>Description / Notes</label>
+          <textarea name="description" class="form-control" rows="2" placeholder="Details, requirements, or links"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Subject / Topic</label>
+            <input type="text" name="subject" class="form-control" placeholder="e.g. Computer Science" list="subjectsDatalist">
+            <datalist id="subjectsDatalist">
+              {% for s in subjects %}
+              <option value="{{ s }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select name="priority" class="form-control">
+              <option value="Low">Low</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Due Date</label>
+            <input type="date" name="due_date" class="form-control" value="{{ today_date_str }}">
+          </div>
+          <div class="form-group">
+            <label>Due Time</label>
+            <input type="time" name="due_time" class="form-control" value="23:59">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Estimated Hours</label>
+            <input type="number" step="0.5" name="estimated_hours" class="form-control" value="2.0">
+          </div>
+          <div class="form-group">
+            <label>Initial Status</label>
+            <select name="status" class="form-control">
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Subtasks dynamic builder -->
+        <div class="form-group">
+          <label>Subtask Checklist (Optional)</label>
+          <div id="subtasksBuilder" style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem;">
+            <input type="text" name="subtasks[]" class="form-control" placeholder="Subtask 1 (e.g. Gather references)">
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addSubtaskField()">
+            <i class="fas fa-plus"></i> Add Another Subtask
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addTaskModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div class="modal-overlay" id="editTaskModal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3><i class="fas fa-edit" style="color: var(--accent-primary);"></i> Edit Task</h3>
+      <button class="btn-icon" onclick="closeModal('editTaskModal')" style="width: 30px; height: 30px;">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <form id="editTaskForm" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Task Title *</label>
+          <input type="text" id="editTaskTitle" name="title" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="editTaskDescription" name="description" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" id="editTaskSubject" name="subject" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select id="editTaskPriority" name="priority" class="form-control">
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Due Date</label>
+            <input type="date" id="editTaskDueDate" name="due_date" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Due Time</label>
+            <input type="time" id="editTaskDueTime" name="due_time" class="form-control">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="editTaskStatus" name="status" class="form-control">
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Estimated vs Actual Hours</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="number" step="0.5" id="editTaskEstHours" name="estimated_hours" class="form-control" placeholder="Est">
+              <input type="number" step="0.5" id="editTaskActHours" name="actual_hours" class="form-control" placeholder="Act">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editTaskModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function addSubtaskField() {
+    const container = document.getElementById('subtasksBuilder');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'subtasks[]';
+    input.className = 'form-control';
+    input.placeholder = `Subtask ${container.children.length + 1}`;
+    container.appendChild(input);
+  }
+
+  function openEditTaskModal(id, title, desc, subject, priority, status, dueDate, dueTime, estHours, actHours) {
+    document.getElementById('editTaskForm').action = `/tasks/edit/${id}`;
+    document.getElementById('editTaskTitle').value = title;
+    document.getElementById('editTaskDescription').value = desc || '';
+    document.getElementById('editTaskSubject').value = subject || '';
+    document.getElementById('editTaskPriority').value = priority;
+    document.getElementById('editTaskStatus').value = status;
+    document.getElementById('editTaskDueDate').value = dueDate || '';
+    document.getElementById('editTaskDueTime').value = dueTime || '23:59';
+    document.getElementById('editTaskEstHours').value = estHours || 1.0;
+    document.getElementById('editTaskActHours').value = actHours || 0.0;
+    openModal('editTaskModal');
+  }
+</script>
+{% endblock %}
